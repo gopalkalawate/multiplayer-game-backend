@@ -1,0 +1,56 @@
+# =====================
+# Go build artifacts
+# =====================
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# =====================
+# Go workspace files
+# =====================
+go.work
+go.work.sum
+
+# =====================
+# Vendor directory (if using vendoring)
+# =====================
+/vendor/
+
+# =====================
+# Coverage & profiling
+# =====================
+coverage.out
+*.coverprofile
+*.prof
+
+# =====================
+# IDE / Editor files
+# =====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# =====================
+# OS generated files
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Logs
+# =====================
+*.log
+
+# =====================
+# Environment variables
+# =====================
+.env
+.env.*
+storage
+/config
