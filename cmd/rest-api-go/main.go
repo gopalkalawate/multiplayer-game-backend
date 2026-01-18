@@ -13,6 +13,7 @@ import (
 	"github.com/gopalkalawate/multiplayer-game-backend/internal/databases/sqlite"
 	"github.com/gopalkalawate/multiplayer-game-backend/internal/http/handlers/matchmaking"
 	"github.com/gopalkalawate/multiplayer-game-backend/internal/utils"
+	"github.com/gopalkalawate/multiplayer-game-backend/internal/utils/socket"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -36,10 +37,19 @@ func main() {
 
 	// start matchmaker worker
 	go matchmaking.StartMatchmaker(db)
+
+	// start websocket hub
+	hub := socket.NewHub()
+	go hub.Run()
+
 	// setup router
 	router := http.NewServeMux()
 	router.HandleFunc("POST /join-queue", matchmaking.JoinQueue(db))
 	router.HandleFunc("GET /match-status", matchmaking.GetMatchStatus(db))
+	router.HandleFunc("GET /ws/{match_id}", func(w http.ResponseWriter, r *http.Request) {
+		matchID := r.PathValue("match_id")
+		socket.ServeWs(hub, w, r, matchID)
+	})
 
 	server := &http.Server{
 		Addr:    cfg.HTTPServer.Address,
