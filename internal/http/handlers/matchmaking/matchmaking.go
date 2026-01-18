@@ -27,11 +27,11 @@ func JoinQueue(db databases.Database) http.HandlerFunc {
 		ctx := r.Context()
 
 		// Persist player to database first
-		// if err := db.CreatePlayer(ctx, player); err != nil {
-		// 	fmt.Printf("Error creating player in DB: %v\n", err)
-		// 	response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(fmt.Errorf("failed to persist player: %w", err)))
-		// 	return
-		// }
+		if err := db.CreatePlayer(ctx, player); err != nil {
+			fmt.Printf("Error creating player in DB: %v\n", err)
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(fmt.Errorf("failed to persist player: %w", err)))
+			return
+		}
 
 		redisClient := utils.GetClient()
 		if redisClient == nil {

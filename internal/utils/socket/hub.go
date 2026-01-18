@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -10,10 +11,12 @@ import (
 
 // Client represents a connected player
 type Client struct {
-	Hub     *Hub
-	MatchID string
-	Conn    *websocket.Conn
-	Send    chan []byte
+	Hub      *Hub
+	Game     *Game // Link to game to send inputs
+	MatchID  string
+	PlayerID string
+	Conn     *websocket.Conn
+	Send     chan []byte
 }
 
 // Hub maintains the set of active clients and broadcasts messages to the match rooms
@@ -48,15 +51,6 @@ func NewHub() *Hub {
 }
 
 func (h *Hub) Run() {
-	/*
-	How this works :
-	The select statement lets a goroutine wait on multiple communication operations.
-	A select blocks until one of its cases can run, then it executes that case. It chooses one at random if multiple are ready.
-	
-	view it on https://go.dev/tour/concurrency/5
-	Select Statement:
-		The key is the select statement. Unlike a regular infinite loop that would constantly consume CPU, select blocks until one of its cases can proceed. The goroutine will sit idle, consuming no CPU cycles.
-	*/
 	for {
 		select {
 		case client := <-h.register:
@@ -98,14 +92,25 @@ func (h *Hub) Run() {
 }
 
 // serveWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, matchID string) {
+func ServeWs(hub *Hub, gm *GameManager, w http.ResponseWriter, r *http.Request, matchID, playerID string) {
 	conn, err := Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	client := &Client{Hub: hub, MatchID: matchID, Conn: conn, Send: make(chan []byte, 256)}
+	// Create or Get Game
+	game := gm.CreateGame(matchID)
+	game.AddPlayer(playerID)
+
+	client := &Client{
+		Hub:      hub,
+		Game:     game,
+		MatchID:  matchID,
+		PlayerID: playerID,
+		Conn:     conn,
+		Send:     make(chan []byte, 256),
+	}
 	client.Hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
@@ -127,7 +132,16 @@ func (c *Client) readPump() {
 			}
 			break
 		}
-		c.Hub.broadcast <- Message{MatchID: c.MatchID, Payload: message}
+		// Forward input to Game
+		var input PlayerInput
+		if err := json.Unmarshal(message, &input); err != nil {
+			log.Printf("error unmarshalling input: %v", err)
+			continue
+		}
+		// Force PlayerID to match the connection's player ID to prevents spoofing
+		input.PlayerID = c.PlayerID
+
+		c.Game.InputChan <- input
 	}
 }
 

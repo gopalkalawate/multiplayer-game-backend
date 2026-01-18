@@ -42,13 +42,22 @@ func main() {
 	hub := socket.NewHub()
 	go hub.Run()
 
+	// Game Manager
+	gm := socket.NewGameManager(hub)
+
 	// setup router
 	router := http.NewServeMux()
 	router.HandleFunc("POST /join-queue", matchmaking.JoinQueue(db))
 	router.HandleFunc("GET /match-status", matchmaking.GetMatchStatus(db))
 	router.HandleFunc("GET /ws/{match_id}", func(w http.ResponseWriter, r *http.Request) {
 		matchID := r.PathValue("match_id")
-		socket.ServeWs(hub, w, r, matchID)
+		// Query param for playerID? Or generate?
+		// For now let's assume simple connection or use random ID in ServeWs
+		playerID := r.URL.Query().Get("playerID")
+		if playerID == "" {
+			playerID = "anon" // or error
+		}
+		socket.ServeWs(hub, gm, w, r, matchID, playerID)
 	})
 
 	server := &http.Server{
